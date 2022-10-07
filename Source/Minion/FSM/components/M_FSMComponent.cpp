@@ -1,7 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "FSM/components/M_FSMComponent.h"
+#include "M_FSMComponent.h"
 
 // Sets default values for this component's properties
 UM_FSMComponent::UM_FSMComponent()
@@ -13,12 +13,43 @@ UM_FSMComponent::UM_FSMComponent()
 	// ...
 }
 
+void UM_FSMComponent::ChangeState(EMinionState StateId)
+{
+	if(States.Contains(StateId))
+	{
+		TSoftClassPtr<UTC_BaseState> NewState = States[StateId];
+		NewState.ToSoftObjectPath().TryLoad();
+
+		UClass* BaseClass = NewState.Get();
+		UTC_BaseState* NextState = Cast<UTC_BaseState>(BaseClass);
+
+		if(CurrentState)
+		{
+			CurrentState->OnExitState();
+		}
+
+		if(NextState)
+		{
+			CurrentState = NextState;
+			CurrentState ->OnEnterState();
+		}
+	}
+}
+
 
 // Called when the game starts
 void UM_FSMComponent::BeginPlay()
 {
 	Super::BeginPlay();
-
+	for(auto FSMStates : States)
+	{
+		FSMStates.Value.ToSoftObjectPath().TryLoad();
+		UClass* BaseClass = FSMStates.Value.Get();
+		if(UTC_BaseState* BaseState = Cast<UTC_BaseState>(BaseClass))
+		{
+			BaseState->InitState(Cast<AController>(GetOwner()));
+		}
+	}
 	// ...
 	
 }
@@ -28,7 +59,10 @@ void UM_FSMComponent::BeginPlay()
 void UM_FSMComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-
+	if(CurrentState)
+	{
+		CurrentState->OnUpdateState(DeltaTime);
+	}
 	// ...
 }
 
